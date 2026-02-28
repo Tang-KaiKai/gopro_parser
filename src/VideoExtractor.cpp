@@ -121,6 +121,7 @@ VideoExtractor::VideoExtractor( const std::string filename, bool dump_info ): vi
 
     image_height_ = pCodecContext_->height;
     image_width_ = pCodecContext_->width;
+    LOG_INFO << "video raw size: " << GREEN << cv::Size( image_width_, image_height_ ) << RESET << std::endl;
 
     // Close the video formatcontext
     avformat_close_input( &pFormatContext_ );
@@ -151,7 +152,7 @@ int VideoExtractor::extractFrames( const std::string &image_folder,
                                    bool display_images )
 {
     std::ofstream list_stream;
-    list_stream.open( list_file, std::ofstream::app );
+    list_stream.open( list_file, std::ofstream::out );
     list_stream << "#timestamp [ns],filename" << std::endl;
     list_stream << std::fixed << std::setprecision( 19 );
 
@@ -272,6 +273,11 @@ int VideoExtractor::extractFrames( const std::string &image_folder,
                     }
                 }
 
+                if ( frame_count == 0 )
+                {
+                    LOG_INFO << "video save size: " << GREEN << final_img.size() << RESET << std::endl;
+                }
+
                 if ( display_images )
                 {
                     cv::imshow( "GoPro Video", final_img );
@@ -298,9 +304,9 @@ int VideoExtractor::extractFrames( const std::string &image_folder,
 
     list_stream.close();
 
-    LOG_INFO << "Finished, extracted frames: " << frame_count
+    LOG_INFO << GREEN << "Finished, extracted frames: " << frame_count
              << ", skip frames: " << num_frames_ - frame_count
-             << ", total frames: " << num_frames_ << std::endl;
+             << ", total frames: " << num_frames_ << RESET << std::endl;
 
     // Free the RGB image
     av_free( buffer );

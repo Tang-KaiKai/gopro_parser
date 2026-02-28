@@ -114,7 +114,7 @@ int main( int argc, char *argv[] )
     std::deque<AcclMeasurement> accl_queue;
     std::deque<GyroMeasurement> gyro_queue;
     imu_extractor.readImuData( accl_queue, gyro_queue );
-    LOG_INFO << "accl measurements num: " << accl_queue.size() << ", gyro measurements num: " << gyro_queue.size() << endl;
+    LOG_INFO << GREEN << "read accl measurements num: " << accl_queue.size() << ", gyro measurements num: " << gyro_queue.size() << RESET << endl;
 
     // 保存 IMU 数据
     if ( !ignore_imu )
@@ -189,6 +189,8 @@ int main( int argc, char *argv[] )
     {
         return 0;
     }
+
+    // 格式校验
     {
         uint32_t gpmf_frame_count = imu_extractor.getImageCount();
         uint32_t ffmpeg_frame_count = video_extractor.getFrameCount();
@@ -218,6 +220,9 @@ int main( int argc, char *argv[] )
             std::filesystem::create_directories( image_folder );
         }
         const std::string list_file = image_folder + "/../data.csv";
+
+        LOG_INFO << "Extracted images will be saved to: " << image_folder << endl;
+        LOG_INFO << "Image list will be saved to: " << list_file << endl;
 
         video_extractor.extractFrames( image_folder, list_file, image_stamps, scale, use_grayscale, display_images );
     }

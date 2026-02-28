@@ -43,7 +43,7 @@ file( GLOB c_src "gpmf_parser/src/*.c" )
 file( GLOB cpp_src "src/*.cpp" )
 
 add_library( ${PROJECT_NAME} SHARED ${c_src} ${cpp_src} )
-target_link_libraries( ${PROJECT_NAME} PRIVATE ${FFMPEG_LIBRARIES} ${OpenCV_LIBS} -lstdc++fs )
+target_link_libraries( ${PROJECT_NAME} PRIVATE ${FFMPEG_LIBRARIES} ${OpenCV_LIBS} )
 
 
 ##################################### 编译可执行文件 #####################################

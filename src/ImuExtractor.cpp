@@ -150,8 +150,8 @@ void ImuExtractor::getImageStamps( vector<uint64_t> &image_stamps )
         GPMF_Free( pGPMFStream_ );
     }
 
-    LOG_INFO << "The last payload is skipped, it contains ["
-             << GREEN << cam_orient_data.size() << RESET << "] CORI samples"  << std::endl;
+    LOG_INFO << YELLOW << "The last payload is skipped, it contains ["
+             << cam_orient_data.size()  << "] CORI samples" << RESET << std::endl;
 }
 
 void ImuExtractor::readImuData( std::deque<AcclMeasurement> &accl_queue,
@@ -267,9 +267,9 @@ void ImuExtractor::readImuData( std::deque<AcclMeasurement> &accl_queue,
         GPMF_Free( pGPMFStream_ );
     }
 
-    LOG_INFO << "The last payload is skipped, it contains ["
-             << GREEN << accl_data.size() << RESET << "] ACCL samples and ["
-             << GREEN << gyro_data.size() << RESET << "] GYRO samples"  << std::endl;
+    LOG_INFO << YELLOW << "The last payload is skipped, it contains ["
+             << accl_data.size() << "] ACCL samples and ["
+             << gyro_data.size() << "] GYRO samples" << RESET << std::endl;
 }
 
 void ImuExtractor::printVideoFrameRate()
