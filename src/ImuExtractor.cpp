@@ -14,7 +14,7 @@ using namespace std;
 
 ImuExtractor::ImuExtractor( const std::string &file )
 {
-    pGPMFStream_ = &gpmf_stream_;
+    pStream_ = &stream_;
 
     LOG_INFO << "Opening video file: " << file << std::endl;
     mp4_handle_ = OpenMP4Source( const_cast<char *>( file.c_str() ), MOV_GPMF_TRAK_TYPE, MOV_GPMF_TRAK_SUBTYPE, 0 );
@@ -29,9 +29,11 @@ ImuExtractor::ImuExtractor( const std::string &file )
     {
         payload_num_ = GetNumberPayloads( mp4_handle_ );
     }
+
     uint32_t fr_num, fr_dem;
     frame_count_ = GetVideoFrameRateAndCount( mp4_handle_, &fr_num, &fr_dem );
     frame_rate_ = ( float )fr_num / ( float )fr_dem;
+    LOG_INFO << "Frame rate: [" << frame_rate_ << "], num: [" << frame_count_ << "]" << std::endl;
 
     const uint64_t time_offset = 2082844800;  // 从 1904年1月1日 到 1970年1月1日 的秒数, GoPro的时间戳是从 1904年1月1日 开始的
     movie_creation_time_ = ( uint64_t )( ( getCreationtime( mp4_handle_ ) - time_offset ) * 1000000000 );
@@ -45,9 +47,9 @@ ImuExtractor::~ImuExtractor()
     {
         FreePayloadResource( mp4_handle_, payloadres_ );
     }
-    if ( pGPMFStream_ )
+    if ( pStream_ )
     {
-        GPMF_Free( pGPMFStream_ );
+        GPMF_Free( pStream_ );
     }
 
     pPayload_ = NULL;
@@ -74,7 +76,7 @@ void ImuExtractor::getPayloadStamps( uint32_t fourcc,
         {
             cleanUp();
         }
-        ret = GPMF_Init( pGPMFStream_, pPayload_, payload_size );
+        ret = GPMF_Init( pStream_, pPayload_, payload_size );
         if ( ret != GPMF_OK )
         {
             cleanUp();
@@ -110,7 +112,7 @@ void ImuExtractor::getImageStamps( vector<uint64_t> &image_stamps )
         {
             cleanUp();
         }
-        ret = GPMF_Init( pGPMFStream_, pPayload_, payload_size );
+        ret = GPMF_Init( pStream_, pPayload_, payload_size );
         if ( ret != GPMF_OK )
         {
             cleanUp();
@@ -147,7 +149,7 @@ void ImuExtractor::getImageStamps( vector<uint64_t> &image_stamps )
 
         prev_stamp = curr_stamp;
 
-        GPMF_Free( pGPMFStream_ );
+        GPMF_Free( pStream_ );
     }
 
     LOG_INFO << YELLOW << "The last payload is skipped, it contains ["
@@ -180,7 +182,7 @@ void ImuExtractor::readImuData( std::deque<AcclMeasurement> &accl_queue,
         {
             cleanUp();
         }
-        ret = GPMF_Init( pGPMFStream_, pPayload_, payload_size );
+        ret = GPMF_Init( pStream_, pPayload_, payload_size );
         if ( ret != GPMF_OK )
         {
             cleanUp();
@@ -264,24 +266,12 @@ void ImuExtractor::readImuData( std::deque<AcclMeasurement> &accl_queue,
         prev_accl_stamp = curr_accl_stamp;
         prev_gyro_stamp = curr_gyro_stamp;
 
-        GPMF_Free( pGPMFStream_ );
+        GPMF_Free( pStream_ );
     }
 
     LOG_INFO << YELLOW << "The last payload is skipped, it contains ["
              << accl_data.size() << "] ACCL samples and ["
              << gyro_data.size() << "] GYRO samples" << RESET << std::endl;
-}
-
-void ImuExtractor::printVideoFrameRate()
-{
-    if ( frame_count_ )
-    {
-        LOG_INFO << "Frame rate: [" << frame_rate_ << "], num: [" << frame_count_ << "]" << std::endl;
-    }
-    else
-    {
-        LOG_WARNING << "Could not get video framerate and frame count" << std::endl;
-    }
 }
 
 void ImuExtractor::cleanUp()
@@ -290,9 +280,9 @@ void ImuExtractor::cleanUp()
     {
         FreePayloadResource( mp4_handle_, payloadres_ );
     }
-    if ( pGPMFStream_ )
+    if ( pStream_ )
     {
-        GPMF_Free( pGPMFStream_ );
+        GPMF_Free( pStream_ );
     }
 
     pPayload_ = NULL;
@@ -324,7 +314,7 @@ void ImuExtractor::showGpmfStructure()
         cleanUp();
     }
 
-    ret = GPMF_Init( pGPMFStream_, pPayload_, payload_size );
+    ret = GPMF_Init( pStream_, pPayload_, payload_size );
     if ( ret != GPMF_OK )
     {
         cleanUp();
@@ -333,7 +323,7 @@ void ImuExtractor::showGpmfStructure()
     printf( "PAYLOAD TIME:\n  %.3f to %.3f seconds\n", in, out );
     printf( "GPMF STRUCTURE:\n" );
     // Output (printf) all the contained GPMF data within this payload
-    ret = GPMF_Validate( pGPMFStream_, GPMF_RECURSE_LEVELS ); // optional
+    ret = GPMF_Validate( pStream_, GPMF_RECURSE_LEVELS ); // optional
     if ( GPMF_OK != ret )
     {
         if ( GPMF_ERROR_UNKNOWN_TYPE == ret )
@@ -345,41 +335,41 @@ void ImuExtractor::showGpmfStructure()
             printf( "Invalid GPMF Structure\n" );
     }
 
-    GPMF_ResetState( pGPMFStream_ );
+    GPMF_ResetState( pStream_ );
 
     GPMF_ERR nextret;
     do
     {
         printf( "  " );
-        PrintGPMF( pGPMFStream_ ); // printf current GPMF KLV
+        PrintGPMF( pStream_ ); // printf current GPMF KLV
 
-        nextret = GPMF_Next( pGPMFStream_, GPMF_RECURSE_LEVELS );
+        nextret = GPMF_Next( pStream_, GPMF_RECURSE_LEVELS );
 
         while (
             nextret ==
             GPMF_ERROR_UNKNOWN_TYPE ) // or just using GPMF_Next(ms, GPMF_RECURSE_LEVELS|GPMF_TOLERANT)
             // to ignore and skip unknown types
-            nextret = GPMF_Next( pGPMFStream_, GPMF_RECURSE_LEVELS );
+            nextret = GPMF_Next( pStream_, GPMF_RECURSE_LEVELS );
 
     }
     while ( GPMF_OK == nextret );
-    GPMF_ResetState( pGPMFStream_ );
+    GPMF_ResetState( pStream_ );
 }
 
 GPMF_ERR ImuExtractor::getScaledData( uint32_t fourcc, vector<vector<double>> &readings )
 {
     while ( GPMF_OK ==
-            GPMF_FindNext( pGPMFStream_,
+            GPMF_FindNext( pStream_,
                            STR2FOURCC( "STRM" ),
                            static_cast<GPMF_LEVELS>( GPMF_RECURSE_LEVELS |
                                    GPMF_TOLERANT ) ) ) // GoPro Hero5/6/7 Accelerometer)
     {
         if ( GPMF_OK !=
-                GPMF_FindNext( pGPMFStream_, fourcc, static_cast<GPMF_LEVELS>( GPMF_RECURSE_LEVELS | GPMF_TOLERANT ) ) )
+                GPMF_FindNext( pStream_, fourcc, static_cast<GPMF_LEVELS>( GPMF_RECURSE_LEVELS | GPMF_TOLERANT ) ) )
             continue;
 
-        uint32_t samples = GPMF_Repeat( pGPMFStream_ );
-        uint32_t elements = GPMF_ElementsInStruct( pGPMFStream_ );
+        uint32_t samples = GPMF_Repeat( pStream_ );
+        uint32_t elements = GPMF_ElementsInStruct( pStream_ );
         uint32_t buffersize = samples * elements * sizeof( double );
         double *ptr, *tmpbuffer = ( double * )malloc( buffersize );
 
@@ -391,7 +381,7 @@ GPMF_ERR ImuExtractor::getScaledData( uint32_t fourcc, vector<vector<double>> &r
 
             // GPMF_FormattedData(ms, tmpbuffer, buffersize, 0, samples); // Output data in LittleEnd, but
             // no scale
-            if ( GPMF_OK == GPMF_ScaledData( pGPMFStream_,
+            if ( GPMF_OK == GPMF_ScaledData( pStream_,
                                              tmpbuffer,
                                              buffersize,
                                              0,
@@ -413,7 +403,7 @@ GPMF_ERR ImuExtractor::getScaledData( uint32_t fourcc, vector<vector<double>> &r
         }
     }
 
-    GPMF_ResetState( pGPMFStream_ );
+    GPMF_ResetState( pStream_ );
     return GPMF_OK;
 }
 
@@ -423,22 +413,22 @@ uint64_t ImuExtractor::getStamp( uint32_t fourcc )
 
     uint64_t timestamp = 0;
     while ( GPMF_OK ==
-            GPMF_FindNext( pGPMFStream_,
+            GPMF_FindNext( pStream_,
                            STR2FOURCC( "STRM" ),
                            static_cast<GPMF_LEVELS>( GPMF_RECURSE_LEVELS |
                                    GPMF_TOLERANT ) ) ) // GoPro Hero5/6/7 Accelerometer)
     {
         if ( GPMF_OK !=
-                GPMF_FindNext( pGPMFStream_, fourcc, static_cast<GPMF_LEVELS>( GPMF_RECURSE_LEVELS | GPMF_TOLERANT ) ) )
+                GPMF_FindNext( pStream_, fourcc, static_cast<GPMF_LEVELS>( GPMF_RECURSE_LEVELS | GPMF_TOLERANT ) ) )
             continue;
 
-        GPMF_CopyState( pGPMFStream_, &find_stream );
+        GPMF_CopyState( pStream_, &find_stream );
         if ( GPMF_OK == GPMF_FindPrev( &find_stream,
                                        GPMF_KEY_TIME_STAMP,
                                        static_cast<GPMF_LEVELS>( GPMF_CURRENT_LEVEL | GPMF_TOLERANT ) ) )
             timestamp = BYTESWAP64( *( uint64_t * )GPMF_RawData( &find_stream ) );
     }
-    GPMF_ResetState( pGPMFStream_ );
+    GPMF_ResetState( pStream_ );
     return timestamp;
 }
 
@@ -455,7 +445,7 @@ GPMF_ERR ImuExtractor::showCurrentPayload( uint32_t index )
     {
         cleanUp();
     }
-    ret = GPMF_Init( pGPMFStream_, pPayload_, payload_size );
+    ret = GPMF_Init( pStream_, pPayload_, payload_size );
     if ( ret != GPMF_OK )
     {
         cleanUp();
@@ -465,19 +455,19 @@ GPMF_ERR ImuExtractor::showCurrentPayload( uint32_t index )
     do
     {
         printf( "  " );
-        PrintGPMF( pGPMFStream_ ); // printf current GPMF KLV
+        PrintGPMF( pStream_ ); // printf current GPMF KLV
 
-        nextret = GPMF_Next( pGPMFStream_, GPMF_RECURSE_LEVELS );
+        nextret = GPMF_Next( pStream_, GPMF_RECURSE_LEVELS );
 
         while (
             nextret ==
             GPMF_ERROR_UNKNOWN_TYPE ) // or just using GPMF_Next(ms, GPMF_RECURSE_LEVELS|GPMF_TOLERANT)
             // to ignore and skip unknown types
-            nextret = GPMF_Next( pGPMFStream_, GPMF_RECURSE_LEVELS );
+            nextret = GPMF_Next( pStream_, GPMF_RECURSE_LEVELS );
 
     }
     while ( GPMF_OK == nextret );
-    GPMF_ResetState( pGPMFStream_ );
+    GPMF_ResetState( pStream_ );
 
     return GPMF_OK;
 }
@@ -488,22 +478,22 @@ uint32_t ImuExtractor::getNumOfSamples( uint32_t fourcc )
 
     uint32_t total_samples = 0;
     while ( GPMF_OK ==
-            GPMF_FindNext( pGPMFStream_,
+            GPMF_FindNext( pStream_,
                            STR2FOURCC( "STRM" ),
                            static_cast<GPMF_LEVELS>( GPMF_RECURSE_LEVELS |
                                    GPMF_TOLERANT ) ) ) // GoPro Hero5/6/7 Accelerometer)
     {
         if ( GPMF_OK !=
-                GPMF_FindNext( pGPMFStream_, fourcc, static_cast<GPMF_LEVELS>( GPMF_RECURSE_LEVELS | GPMF_TOLERANT ) ) )
+                GPMF_FindNext( pStream_, fourcc, static_cast<GPMF_LEVELS>( GPMF_RECURSE_LEVELS | GPMF_TOLERANT ) ) )
             continue;
 
-        GPMF_CopyState( pGPMFStream_, &find_stream );
+        GPMF_CopyState( pStream_, &find_stream );
         if ( GPMF_OK == GPMF_FindPrev( &find_stream,
                                        GPMF_KEY_TOTAL_SAMPLES,
                                        static_cast<GPMF_LEVELS>( GPMF_CURRENT_LEVEL | GPMF_TOLERANT ) ) )
             total_samples = BYTESWAP32( *( uint32_t * )GPMF_RawData( &find_stream ) );
     }
-    GPMF_ResetState( pGPMFStream_ );
+    GPMF_ResetState( pStream_ );
     return total_samples;
 }
 
@@ -520,7 +510,7 @@ uint64_t ImuExtractor::getPayloadStartStamp( uint32_t fourcc, uint32_t index )
     {
         cleanUp();
     }
-    ret = GPMF_Init( pGPMFStream_, pPayload_, payload_size );
+    ret = GPMF_Init( pStream_, pPayload_, payload_size );
     if ( ret != GPMF_OK )
     {
         cleanUp();

@@ -1,7 +1,8 @@
-"""Example: Save images as rosbag1."""
+"""
+功能: 将 Euroc 数据集中的图像和 IMU 数据转换为 ROS1 bag 文件
+"""
 
 import logging
-import re
 # 配置日志格式
 logging.basicConfig(level=logging.INFO,
                     format='[%(asctime)s.%(msecs)03d][%(levelname)s][%(filename)s:%(lineno)d] %(message)s',
@@ -111,7 +112,7 @@ def save_to_rosbag(img_topic: str,
                    img_data_dir: str = None,
                    img_ts_list: List[int] = None,
                    imu_list: List[Tuple[int, np.ndarray]] = None,
-                   img_interval: int = 1) -> None:
+                   interval: int = 1) -> None:
     """
     将图像和 IMU 数据保存到 ROS bag 文件
     Args:
@@ -122,6 +123,7 @@ def save_to_rosbag(img_topic: str,
         img_data_dir (str): 图像数据目录
         img_ts_list (List[int]): 图像时间戳列表,单位为纳秒
         imu_list (List[Tuple[int, np.ndarray]]): IMU 数据列表,每个元素为一个元组,包含时间戳( 单位为纳秒 )和一个包含六个 IMU 测量值的 numpy 数组
+        interval (int): 保存图像的间隔,默认为 1,表示保存所有图像,如果设置为 n,则每隔 n 帧保存一张图像
     """
 
     if img_data_dir is None and imu_list is None:
@@ -148,7 +150,7 @@ def save_to_rosbag(img_topic: str,
             conn_img = writer.add_connection(img_topic, CompressedImage.__msgtype__, typestore=typestore)
 
             for idx, timestamp in enumerate(img_ts_list):
-                if idx % img_interval != 0:
+                if idx % interval != 0:
                     continue
                 # end if
 
@@ -212,16 +214,16 @@ if __name__ == '__main__':
 
     parser.add_argument('--data_dir', type=str, required=True, help='Path to the Euroc dataset directory')
     parser.add_argument('--bag_path', type=str, required=True, help='Path to the output ROS bag file')
-    parser.add_argument('--img_interval', type=int, default=1, help='Interval for saving images to ROS bag (default: 1, save all images)')
+    parser.add_argument('--interval', type=int, default=1, help='Interval for saving images to ROS bag (default: 1, save all images)')
 
     args = parser.parse_args()
 
     data_dir = args.data_dir
     bag_path = args.bag_path
-    img_interval = args.img_interval
+    interval = args.interval
     logging.info(f"Data directory: {data_dir}")
     logging.info(f"Output bag path: {bag_path}")
-    logging.info(f"Image save interval: {img_interval}")
+    logging.info(f"Image save interval: {interval}")
     print()
 
     img_ts_list = None
@@ -258,6 +260,6 @@ if __name__ == '__main__':
 
     save_to_rosbag(IMG_TOPIC, IMU_TOPIC, FRAME_ID,
                    bag_path,
-                   img_data_dir, img_ts_list, imu_list, img_interval)
+                   img_data_dir, img_ts_list, imu_list, interval)
 
 # end if __name__ == '__main__'

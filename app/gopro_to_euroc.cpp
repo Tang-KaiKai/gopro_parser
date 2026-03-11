@@ -18,6 +18,7 @@ int main( int argc, char *argv[] )
              << "    --g             : the path to the GoPro video file\n"
              << "    --d             : the directory to save the extracted data\n"
              << "    --s             : the scale to resize the image, default: 1.0\n"
+             << "    --interval      : the interval to save images, default: 1\n"
              << "    --gray          : whether to save grayscale images, default: false\n"
              << "    --display       : whether to display images during processing, default: false\n"
              << "    --ignore_img    : whether to ignore images during processing, default: false\n"
@@ -59,7 +60,30 @@ int main( int argc, char *argv[] )
             }
         }
     }
-    LOG_INFO << "Image saved scale: " << scale << endl;
+    LOG_INFO << "Image save scale: " << scale << endl;
+
+    int interval = 1;
+    {
+        string value;
+        if ( Tool::ParseCmdLine( argc, argv, "--interval", &value ) )
+        {
+            try
+            {
+                interval = std::stoi( value );
+                if ( interval <= 0 )
+                {
+                    LOG_ERROR << "Invalid image interval value: " << value << ". Using default interval of 1";
+                    interval = 1;
+                }
+            }
+            catch ( const std::exception &e )
+            {
+                LOG_ERROR << "Invalid image interval value: " << value << ". Using default interval of 1";
+                interval = 1;
+            }
+        }
+    }
+    LOG_INFO << "Image save interval: " << interval << endl;
 
     const bool use_grayscale = Tool::ParseCmdLine( argc, argv, "--gray" );
     LOG_INFO << "Save grayscale images: " << ( use_grayscale ? "true" : "false" ) << endl;
@@ -111,14 +135,15 @@ int main( int argc, char *argv[] )
                  << ", Total Samples: " << total_samples << endl;
     }
 
-    std::deque<AcclMeasurement> accl_queue;
-    std::deque<GyroMeasurement> gyro_queue;
-    imu_extractor.readImuData( accl_queue, gyro_queue );
-    LOG_INFO << GREEN << "read accl measurements num: " << accl_queue.size() << ", gyro measurements num: " << gyro_queue.size() << RESET << endl;
-
     // 保存 IMU 数据
     if ( !ignore_imu )
     {
+        std::deque<AcclMeasurement> accl_queue;
+        std::deque<GyroMeasurement> gyro_queue;
+        imu_extractor.readImuData( accl_queue, gyro_queue );
+        LOG_INFO << GREEN << "read accl measurements num: " << accl_queue.size()
+                 << ", gyro measurements num: " << gyro_queue.size() << RESET << endl;
+
         const std::string imu_folder = data_save_dir + "/imu0";
         if ( !std::filesystem::is_directory( imu_folder ) )
         {
@@ -178,8 +203,6 @@ int main( int argc, char *argv[] )
         return 0;
     }
 
-    imu_extractor.printVideoFrameRate();
-
     vector<uint64_t> image_stamps;
     imu_extractor.getImageStamps( image_stamps );
     LOG_INFO << "Image stamps num: " << image_stamps.size() << endl;
@@ -187,7 +210,7 @@ int main( int argc, char *argv[] )
     VideoExtractor video_extractor( gopro_video_path );
     if ( !video_extractor.isOk() )
     {
-        return 0;
+        return -1;
     }
 
     // 格式校验
@@ -219,12 +242,17 @@ int main( int argc, char *argv[] )
         {
             std::filesystem::create_directories( image_folder );
         }
-        const std::string list_file = image_folder + "/../data.csv";
+        const std::string list_file = data_save_dir + "/cam0/data.csv";
 
         LOG_INFO << "Extracted images will be saved to: " << image_folder << endl;
         LOG_INFO << "Image list will be saved to: " << list_file << endl;
 
-        video_extractor.extractFrames( image_folder, list_file, image_stamps, scale, use_grayscale, display_images );
+        if ( !video_extractor.extractFrames( image_folder, list_file, image_stamps, scale, interval, use_grayscale,
+                                             display_images ) )
+        {
+            LOG_ERROR << "Failed to extract and save frames." << endl;
+            return -1;
+        }
     }
 
     return 0;

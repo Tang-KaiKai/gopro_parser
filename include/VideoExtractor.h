@@ -11,6 +11,7 @@ extern "C" {
 #include <string>
 #include <vector>
 
+
 namespace GoProParser
 {
 
@@ -21,19 +22,9 @@ private:
     bool is_ok_ = false;
 
     AVFormatContext *pFormatContext_ = NULL;
-    int video_stream_index_;
     AVCodecContext *pCodecContext_ = NULL;
-    AVCodec *pCodec_ = NULL;
-    AVFrame *pFrame_ = NULL;
-    AVFrame *pFrameRGB_ = NULL;
-    AVPacket packet_;
 
-    AVDictionary *pDict_ = NULL;
-    AVDictionaryEntry *pDictEntry_ = NULL;
-    struct SwsContext *pSwsCtx_ = NULL;
-    AVStream *pStream_ = NULL;
-    AVCodecParameters *pCodecParams_;
-
+    int video_stream_index_;
     uint64_t video_creation_time_;
     uint32_t image_width_;
     uint32_t image_height_;
@@ -52,19 +43,21 @@ public:
     {
         return num_frames_;
     }
+
     uint64_t getVideoCreationTime() const
     {
         return video_creation_time_;
     }
 
-    int extractFrames( const std::string &image_folder,
-                       const std::string &list_file,
-                       const std::vector<uint64_t> &image_stamps,
-                       float scale_factor = 1.0,
-                       bool grayscale = false,
-                       bool display_images = false );
+    bool extractFrames( const std::string &image_folder,
+                        const std::string &list_file,
+                        const std::vector<uint64_t> &image_stamps,
+                        float scale_factor = 1.0,
+                        int interval = 1,
+                        bool grayscale = false,
+                        bool display_images = false );
 
-    // int getFrameStamps( std::vector<uint64_t> &stamps );
+    bool getFrameStamps( std::vector<uint64_t> &stamps );
 };
 
 } // namespace GoProParser

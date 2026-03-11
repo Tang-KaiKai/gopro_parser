@@ -9,6 +9,7 @@
 #include "GPMF_parser.h"
 #include "GPMF_mp4reader.h"
 
+
 namespace GoProParser
 {
 
@@ -39,8 +40,8 @@ class ImuExtractor
 private:
     bool is_ok_ = false;
 
-    GPMF_stream gpmf_stream_;
-    GPMF_stream *pGPMFStream_;
+    GPMF_stream stream_;
+    GPMF_stream *pStream_;
     double metadata_length_;
     size_t mp4_handle_;
     uint32_t payload_num_;
@@ -59,8 +60,6 @@ public:
     {
         return is_ok_;
     }
-
-    void printVideoFrameRate();
 
     uint32_t getImageCount() const
     {
